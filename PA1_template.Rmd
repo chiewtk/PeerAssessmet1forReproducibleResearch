@@ -1,0 +1,140 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+
+```{r}
+dat<-read.csv("activity.csv")
+```
+
+## What is mean total number of steps taken per day?
+
+### 1. Total footsteps per day over trial period:
+
+```{r}
+fssum<-tapply(dat$steps,dat$date,sum,na.rm=T)
+fssum
+```
+
+### 2. Histogram of daily footsteps taken:
+
+```{r}
+hist(fssum)
+```
+
+### 3. Brief Summary of the daily footsteps over trial period:
+
+```{r}
+fsmean<-mean(fssum); fsmean
+fsmedian<-median(fssum); fsmedian
+```
+
+- Mean   = `r fsmean`
+- Median = `r fsmedian`
+
+## What is the average daily activity pattern?
+
+### 1. Time Series Plot of time_within_the_day:
+
+```{r}
+steps_per_5_min_slots<-tapply(dat$steps,dat$interval,mean,na.rm=T)
+barplot(steps_per_5_min_slots)
+```
+
+### 2. Finding the time interval with maximum activity:
+
+```{r}
+names(which(steps_per_5_min_slots==max(steps_per_5_min_slots)))
+```
+
+Hence the peak footstep activity happens at **0835H**.
+
+## Imputing missing values
+
+### 1. Counting missing values:
+```{r}
+missingCnt<-sum(is.na(dat));
+missingCnt;
+```
+
+- There are `r missingCnt` missing values in the dataset.
+
+### 2. Strategy for missing data replacement:
+
+- if there is activity on that day, take the mean footsteps.
+- if there is no activity on that day, set to mean of whole trial period.
+- filler array contains substitution values.
+
+```{r}
+overall_mean_foot_steps<-mean(dat$steps,na.rm=T)
+overall_mean_foot_steps
+mean_foot_steps_of_the_day<-tapply(dat$steps,dat$date,mean,na.rm=T)
+mean_foot_steps_of_the_day
+mean_foot_steps_of_the_day[is.nan(mean_foot_steps_of_the_day)]<-overall_mean_foot_steps
+mean_foot_steps_of_the_day
+filler<-mean_foot_steps_of_the_day[dat$date];
+```
+
+### 3. Create new data without missing values -> dat1
+
+```{r}
+dat1<-dat;
+sprintf("Number of NAs before tidying: %d", sum(is.na(dat1)))
+dat1[is.na(dat1),"steps"]<-filler[is.na(dat1)];
+sprintf("Number of NAs after tidying: %d", sum(is.na(dat1)))
+```
+
+### 4. Finding statistics of dat1 and comparing them with dat
+
+Results below shows that the imputing missing data **does not** affect the statistics.
+
+```{r}
+fssum1<-tapply(dat$steps,dat$date,sum,na.rm=T)
+fssum1
+hist(fssum1)
+fsmean1<-mean(fssum1); c(fsmean1,fsmean)
+fsmedian1<-median(fssum1); c(fsmedian1,fsmedian)
+fshist1<-hist(fssum1,plot=F)
+fshist <-hist(fssum ,plot=F)
+cbind(fshist1$counts, fshist$counts)
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+### 1. A new ["weekday" "weekend"] factor:
+
+```{r}
+isWeekend<-grepl("Saturday|Sunday",weekdays(as.Date(dat1$date)))
+WEWD<-1:length(isWeekend)
+WEWD[isWeekend]<-"weekend"
+WEWD[isWeekend==F]<-"weekday"
+dat2<-cbind(dat1,factor(WEWD))
+dimnames(dat2)[[2]][4]<-"weekday_weekend"
+names(dat2)
+head(dat2)
+tail(dat2)
+```
+
+### 2. Plot of 2-panel time-series:
+
+```{r}
+toplot<-tapply(dat2$steps, list(dat2$interval,dat2$weekday_weekend), mean, na.rm = T)
+op <- par(mfcol = c(2, 1)) 
+c11 <- plot(dimnames(toplot)[[1]],toplot[,"weekday"],xlab="time-of-day at 5-min intervals", ylab="Weekday Mean Steps",mfg=c(1, 1),type="l")
+c21 <- plot(dimnames(toplot)[[1]],toplot[,"weekend"],xlab="time-of-day at 5-min intervals", ylab="Weekend Mean Steps",mfg=c(2, 1),type="l")
+par(op); #Restore graphics parameters
+```
+
+Step activities throughout the days vary differently in weekdays and weekends.
+During weekdays, activitiy starts earlier, probably corresponding to work commutes.
+There is distinct peak at around 8:30 am to support such phenomenum.
+Activities then decreases to below half the peak and stays until 8:00 pm.
+
+During weekends, step acitivities begins later, and sustains high level throughout the days.
+
+Overall, level of activities in weekends is higher then that in the weekday. Probably this reflects the increasing sedantary nature of work. Weekends see an increase in step activities, which is desirable for a healthy lifestye. 
